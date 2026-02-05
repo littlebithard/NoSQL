@@ -3,7 +3,6 @@
 **Project Title:** FurnitureHub – NoSQL-Based Web Application  
 **Database:** MongoDB  
 **Project Type:** Web Application (Backend + Frontend)  
-**Team Size:** 1 Student  
 
 ---
 
@@ -172,5 +171,6 @@ Multi-stage aggregation pipelines are implemented to provide business insights.
 ---
 
 ## 7. Conclusion
+
 
 The FurnitureHub project successfully demonstrates advanced usage of MongoDB and NoSQL concepts within a real-world web application. The system includes CRUD operations, aggregation pipelines, authentication, REST API design, and documentation.

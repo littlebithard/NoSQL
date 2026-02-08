@@ -5,6 +5,56 @@ const Order = require('../models/order');
 const Product = require('../models/product');
 const User = require('../models/user');
 
+router.get('/top-categories', protect, authorize('admin', 'staff'), async (req, res, next) => {
+    try {
+        const categorySales = await Order.aggregate([
+            { $match: { paymentStatus: 'paid', status: { $ne: 'cancelled' } } },
+            { $unwind: '$items' },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'items.product',
+                    foreignField: '_id',
+                    as: 'product'
+                }
+            },
+            { $unwind: '$product' },
+            {
+                $group: {
+                    _id: '$product.category',
+                    totalRevenue: { $sum: { $multiply: ['$items.quantity', '$items.price'] } },
+                    totalQuantity: { $sum: '$items.quantity' }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'categories',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'category'
+                }
+            },
+            { $unwind: '$category' },
+            {
+                $project: {
+                    categoryName: '$category.name',
+                    totalRevenue: 1,
+                    totalQuantity: 1
+                }
+            },
+            { $sort: { totalRevenue: -1 } },
+            { $limit: 10 }
+        ]);
+
+        res.json({
+            success: true,
+            data: categorySales
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.get('/dashboard', protect, authorize('admin', 'staff'), async (req, res, next) => {
     try {
         const [totalProducts, totalUsers, totalOrders, orders] = await Promise.all([

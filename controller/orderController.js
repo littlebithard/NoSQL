@@ -121,6 +121,24 @@ exports.getOrderById = async (req, res, next) => {
     }
 };
 
+// Get pending orders (admin/staff only)
+exports.getPendingOrders = async (req, res, next) => {
+    try {
+        const orders = await Order.find({ status: 'pending' })
+            .populate('user', 'username email')
+            .populate('items.product', 'name price')
+            .sort('-orderedAt')
+            .limit(50);
+
+        res.json({
+            success: true,
+            data: orders
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Get all orders (admin/staff only)
 exports.getAllOrders = async (req, res, next) => {
     try {

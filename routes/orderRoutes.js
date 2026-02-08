@@ -5,6 +5,7 @@ const { protect, authorize } = require('../middleware/auth');
 
 router.post('/', protect, orderController.createOrder);
 router.get('/my', protect, orderController.getMyOrders);
+router.get('/pending', protect, authorize('admin', 'staff'), orderController.getPendingOrders);
 router.get('/', protect, authorize('admin', 'staff'), orderController.getAllOrders);
 router.get('/:id', protect, orderController.getOrderById);
 router.put('/:id/status', protect, authorize('admin', 'staff'), orderController.updateOrderStatus);

@@ -48,6 +48,8 @@ export const productsAPI = {
     getById: (id) => apiRequest(`/products/${id}`),
     getFeatured: () => apiRequest('/products/featured'),
     getByCategory: (categoryId) => apiRequest(`/products/category/${categoryId}`),
+    getLowStock: () => apiRequest('/products/low-stock'),
+    getRecent: (limit = 10) => apiRequest(`/products/recent${limit ? `?limit=${limit}` : ''}`),
     create: (data) => apiRequest('/products', {
         method: 'POST',
         body: JSON.stringify(data)
@@ -58,6 +60,10 @@ export const productsAPI = {
     }),
     delete: (id) => apiRequest(`/products/${id}`, {
         method: 'DELETE'
+    }),
+    updateStock: (id, stock) => apiRequest(`/products/${id}/stock`, {
+        method: 'PATCH',
+        body: JSON.stringify({ stock })
     }),
     addRating: (id, rating) => apiRequest(`/products/${id}/rating`, {
         method: 'POST',
@@ -108,6 +114,7 @@ export const ordersAPI = {
         body: JSON.stringify(orderData)
     }),
     getMy: () => apiRequest('/orders/my'),
+    getPending: () => apiRequest('/orders/pending'),
     getAll: (params = {}) => {
         const query = new URLSearchParams(params).toString();
         return apiRequest(`/orders${query ? `?${query}` : ''}`);
@@ -126,9 +133,35 @@ export const ordersAPI = {
 export const analyticsAPI = {
     getDashboard: () => apiRequest('/analytics/dashboard'),
     getPopularProducts: () => apiRequest('/analytics/popular-products'),
+    getTopCategories: () => apiRequest('/analytics/top-categories'),
     getSalesReport: () => apiRequest('/analytics/sales-report'),
     getMonthlyStats: (year) => apiRequest(`/analytics/monthly-stats${year ? `?year=${year}` : ''}`),
+    getMonthlyRevenue: (year) => apiRequest(`/analytics/monthly-revenue${year ? `?year=${year}` : ''}`),
     getCustomerActivity: () => apiRequest('/analytics/customer-activity')
+};
+
+// Reviews API
+export const reviewsAPI = {
+    create: (data) => apiRequest(`/reviews/product/${data.productId}`, {
+        method: 'POST',
+        body: JSON.stringify({
+            rating: data.rating,
+            review: data.review
+        })
+    }),
+    add: (productId, reviewData) => apiRequest(`/reviews/product/${productId}`, { // Fixed endpoint to match server
+        method: 'POST',
+        body: JSON.stringify(reviewData)
+    }),
+    update: (reviewId, reviewData) => apiRequest(`/reviews/${reviewId}`, {
+        method: 'PUT',
+        body: JSON.stringify(reviewData)
+    }),
+    delete: (reviewId, productId) => apiRequest(`/reviews/${reviewId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ productId })
+    }),
+    getMyReviews: () => apiRequest('/reviews/user/my-reviews')
 };
 
 // Users API (for admin)

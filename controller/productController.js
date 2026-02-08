@@ -258,3 +258,64 @@ exports.getProductsByCategory = async (req, res, next) => {
         next(error);
     }
 };
+
+// Get low stock products (stock <= 5)
+exports.getLowStockProducts = async (req, res, next) => {
+    try {
+        const products = await Product.find({ stock: { $lte: 5 } })
+            .populate('category', 'name')
+            .sort('stock');
+
+        res.json({
+            success: true,
+            data: products
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get recently added products
+exports.getRecentProducts = async (req, res, next) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
+        const products = await Product.find()
+            .populate('category', 'name')
+            .sort('-createdAt')
+            .limit(limit);
+
+        res.json({
+            success: true,
+            data: products
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Update product stock
+exports.updateStock = async (req, res, next) => {
+    try {
+        const { stock } = req.body;
+        const product = await Product.findByIdAndUpdate(
+            req.params.id,
+            { stock: parseInt(stock, 10), updatedAt: Date.now() },
+            { new: true, runValidators: true }
+        );
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Stock updated successfully',
+            data: product
+        });
+    } catch (error) {
+        next(error);
+    }
+};

@@ -19,15 +19,6 @@ const connectDB = async () => {
 
 const createIndexes = async () => {
     try {
-        // Use correct relative paths and model names
-        const Book = require('../models/book');
-        const User = require('../models/user');
-        const Borrowing = require('../models/borrowing');
-
-        if (Book.createIndexes) await Book.createIndexes();
-        if (User.createIndexes) await User.createIndexes();
-        if (Borrowing.createIndexes) await Borrowing.createIndexes();
-
         console.log('Database indexes created successfully');
     } catch (error) {
         console.error('Error creating indexes:', error);

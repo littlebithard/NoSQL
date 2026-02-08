@@ -1,4 +1,4 @@
-import { authAPI, productsAPI, categoriesAPI, cartAPI, ordersAPI, analyticsAPI } from './api.js';
+import { authAPI, productsAPI, categoriesAPI, cartAPI, ordersAPI, analyticsAPI, reviewsAPI } from './api.js';
 
 const state = {
     user: null,
@@ -9,8 +9,11 @@ const state = {
     orders: [],
     cart: { items: [], subtotal: 0, tax: 0, shipping: 0, total: 0, itemCount: 0 },
     selectedProductId: null,
+    editingProduct: undefined,
     message: '',
     error: '',
+    showReviewForm: false,
+    editingReview: undefined,
 };
 
 const appEl = document.getElementById('app');
@@ -361,8 +364,12 @@ function renderProductDetailView(product) {
         </div>
         <div class="reviews-section">
             <h2>Customer Reviews</h2>
+            <button class="write-review-btn" id="write-review-btn">Write a Review</button>
+            ${state.user ? '' : '<p class="login-to-review">Please log in to write a review.</p>'}
+            ${state.showReviewForm ? renderReviewForm(product._id) : ''}
+            ${state.editingReview ? renderReviewForm(product._id, state.editingReview) : ''}
             ${ratings.length === 0
-            ? '<p class="empty-text">No reviews yet. Be the first to review!</p>'
+            ? '<p class="empty-text">No reviews yet.</p>'
             : `
                 <div class="reviews-list">
                     ${ratings.slice(0, 5).map(r => `
@@ -607,6 +614,106 @@ function renderDashboardView() {
     `;
 }
 
+function renderProductFormModal() {
+    const p = state.editingProduct || {};
+    const isEdit = !!p._id;
+    const catId = p.category && (p.category._id || p.category);
+
+    return `
+    <div class="modal-overlay" id="product-modal-overlay">
+        <div class="modal-content product-form-modal">
+            <div class="modal-header">
+                <h2>${isEdit ? 'Edit Product' : 'Add Product'}</h2>
+                <button type="button" class="modal-close" id="close-product-modal" aria-label="Close">&times;</button>
+            </div>
+            <form id="product-form" class="product-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SKU *</label>
+                        <input type="text" name="sku" value="${p.sku || ''}" required placeholder="e.g. FRN-001" />
+                    </div>
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select name="category" required>
+                            <option value="">Select Category</option>
+                            ${state.categories.map(c => `
+                                <option value="${c._id}" ${catId === c._id ? 'selected' : ''}>${c.name}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" name="name" value="${p.name || ''}" required />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Brand *</label>
+                        <input type="text" name="brand" value="${p.brand || ''}" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="in_stock" ${p.status === 'in_stock' ? 'selected' : ''}>In Stock</option>
+                            <option value="low_stock" ${p.status === 'low_stock' ? 'selected' : ''}>Low Stock</option>
+                            <option value="out_of_stock" ${p.status === 'out_of_stock' ? 'selected' : ''}>Out of Stock</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" placeholder="Product description">${p.description || ''}</textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Price *</label>
+                        <input type="number" name="price" value="${p.price ?? ''}" step="0.01" min="0" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Discount Price</label>
+                        <input type="number" name="discountPrice" value="${p.discountPrice ?? ''}" step="0.01" min="0" placeholder="Optional" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stock *</label>
+                        <input type="number" name="stock" value="${p.stock ?? 0}" min="0" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Material</label>
+                        <input type="text" name="material" value="${p.material || ''}" placeholder="e.g. Wood, Metal" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Color</label>
+                        <input type="text" name="color" value="${p.color || ''}" placeholder="e.g. Brown, Black" />
+                    </div>
+                    <div class="form-group">
+                        <label>Weight (kg)</label>
+                        <input type="number" name="weight" value="${p.dimensions?.weight ?? ''}" step="0.01" min="0" placeholder="Optional" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Images (comma-separated URLs)</label>
+                    <textarea name="images" placeholder="https://example.com/img1.jpg, https://example.com/img2.jpg">${(p.images || []).join(', ')}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="isFeatured" ${p.isFeatured ? 'checked' : ''} />
+                        Featured Product
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="cancel-product-form" class="cancel-btn">Cancel</button>
+                    <button type="submit" class="submit-btn">${isEdit ? 'Update Product' : 'Add Product'}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    `;
+}
+
 function renderManageProductsView() {
     return `
     <div class="manage-products-page">
@@ -614,6 +721,8 @@ function renderManageProductsView() {
             <h1>Manage Products</h1>
             <button class="add-product-btn" id="add-product-btn">+ Add Product</button>
         </div>
+        ${state.message ? `<div class="message">${state.message}</div>` : ''}
+        ${state.error ? `<div class="error-message">${state.error}</div>` : ''}
         <div class="products-table-container">
             <table class="products-table">
                 <thead>
@@ -644,6 +753,78 @@ function renderManageProductsView() {
                     `).join('')}
                 </tbody>
             </table>
+        </div>
+        ${state.editingProduct !== undefined ? renderProductFormModal() : ''}
+    </div>
+    `;
+}
+
+function renderReviewForm(productId, review = null) {
+    const isEdit = !!review;
+    const currentRating = review?.rating || '';
+
+    return `
+    <div class="review-form-container">
+      <h3>${isEdit ? 'Edit Your Review' : 'Write a Review'}</h3>
+      <form id="review-form" class="review-form">
+        <div class="form-group">
+          <label for="review-rating">Rating *</label>
+          <select id="review-rating" name="rating" required>
+            <option value="">Select Rating</option>
+            <option value="1" ${currentRating === 1 ? 'selected' : ''}>⭐ Poor (1)</option>
+            <option value="2" ${currentRating === 2 ? 'selected' : ''}>⭐⭐ Fair (2)</option>
+            <option value="3" ${currentRating === 3 ? 'selected' : ''}>⭐⭐⭐ Good (3)</option>
+            <option value="4" ${currentRating === 4 ? 'selected' : ''}>⭐⭐⭐⭐ Very Good (4)</option>
+            <option value="5" ${currentRating === 5 ? 'selected' : ''}>⭐⭐⭐⭐⭐ Excellent (5)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="review-comment">Review *</label>
+          <textarea 
+            id="review-comment" 
+            name="review" 
+            required 
+            rows="4"
+            placeholder="Share your experience with this product...">${review?.review || ''}</textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="cancel-review-btn" class="cancel-btn">Cancel</button>
+          <button type="submit" class="submit-btn">
+            ${isEdit ? 'Update Review' : 'Submit Review'}
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function reviewsFormModal() {
+    const r = state.editingReview;
+    return `
+    <div class="modal-overlay" id="review-modal-overlay">
+        <div class="modal-content review-form-modal">
+            <div class="modal-header">
+                <h2>${r ? 'Edit Your Review' : 'Write a Review'}</h2>
+                <button type="button" class="modal-close" id="close-review-modal" aria-label="Close">&times;</button>
+            </div>
+            <form id="review-form" class="review-form">
+                <div class="form-group">
+                    <label>Rating</label>
+                    <select name="rating" required>
+                        <option value="">Select Rating</option>
+                        <option value="1">1 Star</option>
+                        <option value="2">2 Stars</option>
+                        <option value="3">3 Stars</option>
+                        <option value="4">4 Stars</option>
+                        <option value="5">5 Stars</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Comment</label>
+                    <textarea name="comment" required></textarea>
+                </div>
+                <button type="submit">Submit Review</button>
+            </form>
         </div>
     </div>
     `;
@@ -682,6 +863,9 @@ function render() {
             case 'manageProducts':
                 content = renderManageProductsView();
                 break;
+            case 'reviews':
+                content = renderReviewsView();
+                break;
             default:
                 content = renderHomeView();
         }
@@ -697,6 +881,45 @@ function render() {
     attachEventHandlers();
 }
 
+async function createProduct(productData) {
+    try {
+        const res = await productsAPI.create(productData);
+        state.message = 'Product created successfully!';
+        state.editingProduct = undefined;
+        await loadProducts();
+    } catch (err) {
+        state.error = err.data?.message || err.message || 'Failed to create product';
+        render();
+    }
+}
+
+async function updateProduct(productId, productData) {
+    try {
+        const res = await productsAPI.update(productId, productData);
+        state.message = 'Product updated successfully!';
+        state.editingProduct = undefined;
+        await loadProducts();
+    } catch (err) {
+        state.error = err.data?.message || err.message || 'Failed to update product';
+        render();
+    }
+}
+
+async function deleteProduct(productId) {
+    if (!confirm('Are you sure you want to delete this product?')) {
+        return;
+    }
+
+    try {
+        await productsAPI.delete(productId);
+        state.message = 'Product deleted successfully!';
+        await loadProducts();
+    } catch (err) {
+        state.error = err.data?.message || err.message || 'Failed to delete product';
+        render();
+    }
+}
+
 function attachEventHandlers() {
     // Navigation
     appEl.querySelectorAll('[data-view]').forEach((el) => {
@@ -708,7 +931,10 @@ function attachEventHandlers() {
                 else if (view === 'orders') loadOrders();
                 else if (view === 'cart') loadCart();
                 else if (view === 'dashboard') loadDashboard();
-                else if (view === 'manageProducts') loadProducts();
+                else if (view === 'manageProducts') {
+                    loadProducts();
+                    loadCategories();
+                }
             }
         });
     });
@@ -850,22 +1076,54 @@ function attachEventHandlers() {
 
     // Cart quantity buttons
     appEl.querySelectorAll('.qty-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();           // Prevents default button behavior
+            e.stopPropagation();          // Stops event bubbling
+
             const itemId = btn.getAttribute('data-item-id');
             const action = btn.getAttribute('data-action');
             const item = state.cart.items.find(i => i._id === itemId);
+
             if (item) {
                 const newQty = action === 'increase' ? item.quantity + 1 : item.quantity - 1;
-                await updateCartItem(itemId, newQty);
+                if (item.quantity === item.product.stock && action === 'increase') {
+                    state.error = 'Cannot add more than available stock';
+                    render();
+                    return;
+                }
+
+                btn.disabled = true;       // Prevent double-clicks
+
+                try {
+                    await updateCartItem(itemId, newQty);
+                } finally {
+                    // Re-enable button after operation
+                    setTimeout(() => {
+                        const newBtn = document.querySelector(`[data-item-id="${itemId}"][data-action="${action}"]`);
+                        if (newBtn) newBtn.disabled = false;
+                    }, 100);
+                }
             }
         });
     });
 
     // Remove cart item
     appEl.querySelectorAll('.remove-item-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();           // Prevents default
+            e.stopPropagation();          // Stops bubbling
+
             const itemId = btn.getAttribute('data-item-id');
-            await removeFromCart(itemId);
+
+            btn.disabled = true;           // Prevent double-clicks
+
+            try {
+                await removeFromCart(itemId);
+            } catch (err) {
+                console.error('Error removing from cart:', err);
+                state.error = err.message || 'Failed to remove item';
+                render();
+            }
         });
     });
 
@@ -934,6 +1192,219 @@ function attachEventHandlers() {
             }
         });
     });
+
+    // Add Product Button
+    const addProductBtn = appEl.querySelector('#add-product-btn');
+    if (addProductBtn) {
+        addProductBtn.addEventListener('click', () => {
+            state.editingProduct = {};
+            state.error = '';
+            state.message = '';
+            render();
+        });
+    }
+
+    // Edit Product Buttons
+    appEl.querySelectorAll('.edit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const productId = btn.getAttribute('data-product-id');
+            const product = state.products.find(p => p._id === productId);
+            if (product) {
+                state.editingProduct = { ...product }; // Clone product for editing
+                state.error = '';
+                state.message = '';
+                render();
+            }
+        });
+    });
+
+    // Delete Product Buttons
+    appEl.querySelectorAll('.delete-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const productId = btn.getAttribute('data-product-id');
+            await deleteProduct(productId);
+        });
+    });
+
+    // Close Product Modal
+    const closeModalBtn = appEl.querySelector('#close-product-modal');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            state.editingProduct = undefined;
+            state.error = '';
+            render();
+        });
+    }
+
+    // Cancel Product Form
+    const cancelFormBtn = appEl.querySelector('#cancel-product-form');
+    if (cancelFormBtn) {
+        cancelFormBtn.addEventListener('click', () => {
+            state.editingProduct = undefined;
+            state.error = '';
+            render();
+        });
+    }
+
+    // Product Form Submit
+    const productForm = appEl.querySelector('#product-form');
+    if (productForm) {
+        productForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(productForm);
+
+            const productData = {
+                sku: formData.get('sku'),
+                name: formData.get('name'),
+                brand: formData.get('brand'),
+                description: formData.get('description') || undefined,
+                category: formData.get('category'),
+                price: parseFloat(formData.get('price')),
+                stock: parseInt(formData.get('stock'), 10) || 0,
+                status: formData.get('status') || 'in_stock',
+                isFeatured: formData.get('isFeatured') === 'on',
+            };
+
+            const discountPrice = formData.get('discountPrice');
+            if (discountPrice && parseFloat(discountPrice) > 0) {
+                productData.discountPrice = parseFloat(discountPrice);
+            }
+            const weight = formData.get('weight');
+            if (weight && parseFloat(weight) > 0) {
+                productData.dimensions = { weight: parseFloat(weight) };
+            }
+            const imagesStr = formData.get('images');
+            if (imagesStr) {
+                productData.images = imagesStr
+                    .split(',')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+            }
+            const material = formData.get('material');
+            if (material) productData.material = material;
+            const color = formData.get('color');
+            if (color) productData.color = color;
+
+            if (state.editingProduct && state.editingProduct._id) {
+                await updateProduct(state.editingProduct._id, productData);
+            } else {
+                await createProduct(productData);
+            }
+        });
+    }
+
+    // Click outside modal to close
+    const modalOverlay = appEl.querySelector('.modal-overlay');
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                state.editingProduct = undefined;
+                state.error = '';
+                render();
+            }
+        });
+    }
+
+    const writeReviewBtn = appEl.querySelector('#write-review-btn');
+    if (writeReviewBtn) {
+        writeReviewBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent bubbling to product card
+            if (!state.user) {
+                state.error = 'Please log in to write a review.';
+                render();
+                return;
+            }
+            state.showReviewForm = true;
+            state.editingReview = undefined;
+            state.error = '';
+            state.message = '';
+            render();
+        });
+    }
+
+    // Cancel review form
+    const cancelReviewBtn = appEl.querySelector('#cancel-review-btn');
+    if (cancelReviewBtn) {
+        cancelReviewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.showReviewForm = false;
+            state.editingReview = undefined;
+            state.error = '';
+            state.message = '';
+            render();
+        });
+    }
+
+    // Submit review form
+    const reviewFormEl = appEl.querySelector('#review-form');
+    if (reviewFormEl) {
+        reviewFormEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const formData = new FormData(reviewFormEl);
+            const rating = parseInt(formData.get('rating'), 10);
+            const reviewText = formData.get('review').trim();
+            const productId = state.selectedProductId;
+
+            // Validation
+            if (!rating || rating < 1 || rating > 5) {
+                state.error = 'Please select a valid rating (1-5 stars).';
+                render();
+                return;
+            }
+            if (!reviewText || reviewText.length < 10) {
+                state.error = 'Review must be at least 10 characters long.';
+                render();
+                return;
+            }
+
+            state.error = '';
+            state.message = 'Submitting review...';
+            render();
+
+            try {
+                await reviewsAPI.create({
+                    productId,
+                    rating,
+                    review: reviewText
+                });
+
+                state.message = 'Review submitted successfully! 🌟';
+                state.showReviewForm = false;
+                state.editingReview = undefined;
+
+                // Refresh to show new review
+                await loadProductDetail(productId);
+
+                // Auto-clear success message
+                setTimeout(() => {
+                    state.message = '';
+                    render();
+                }, 3000);
+            } catch (err) {
+                console.error('Review submit error:', err); // Critical for debugging
+                if (err.data?.status === 403 || err.status === 403) { // Adjusted error checking for apiRequest
+                    state.error = err.data?.message || err.message || 'You can only review products you have purchased.';
+                } else if (err.data?.status === 400 || err.status === 400) {
+                    state.error = err.data?.message || err.message || 'Invalid rating. Must be between 1-5.';
+                } else {
+                    state.error = `Submission failed: ${err.message || 'Unknown error'}`;
+                }
+                render();
+            }
+        });
+    }
+}
+
+
+
+async function addReview(productId, rating, reviewText) {
+    await reviewsAPI.create({
+        productId,
+        rating,
+        review: reviewText
+    });
 }
 
 // API Functions
@@ -957,9 +1428,12 @@ async function updateCartItem(itemId, quantity) {
             await cartAPI.update(itemId, quantity);
         }
         await loadCart();
-    } catch (err) {
-        state.error = err.message;
+        state.error = '';             // Clear previous errors
         render();
+    } catch (err) {
+        state.error = err.data?.message || err.message || 'Failed to update cart';  // Better error messages
+        render();
+        throw err;                     // Re-throw for event handler
     }
 }
 
@@ -967,9 +1441,13 @@ async function removeFromCart(itemId) {
     try {
         await cartAPI.remove(itemId);
         await loadCart();
-    } catch (err) {
-        state.error = err.message;
+        state.message = 'Item removed from cart';  // Success message
+        state.error = '';                          // Clear errors
         render();
+    } catch (err) {
+        state.error = err.data?.message || err.message || 'Failed to remove item';
+        render();
+        throw err;
     }
 }
 
@@ -1038,6 +1516,8 @@ async function loadOrders() {
         render();
     }
 }
+
+
 
 async function loadDashboard() {
     try {

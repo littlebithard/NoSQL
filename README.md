@@ -138,7 +138,6 @@ Multi-stage aggregation pipelines are implemented to provide business insights.
 
 | Method | Endpoint | Auth | Role | Description |
 |--------|----------|------|------|-------------|
-
 | **Auth** | | | | |
 | POST | /api/auth/register | No | - | Register user |
 | POST | /api/auth/login | No | - | Login user |
@@ -236,3 +235,4 @@ Multi-stage aggregation pipelines are implemented to provide business insights.
 ## 7. Conclusion
 
 The FurnitureHub project successfully demonstrates advanced usage of MongoDB and NoSQL concepts within a real-world web application. The system includes CRUD operations, aggregation pipelines, authentication, REST API design, and documentation.
+
